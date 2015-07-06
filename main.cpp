@@ -119,7 +119,8 @@ int main(int argc, char* argv[])
 	int num_threads = 1;
 	int iter = 1;
 	int min_count = 5;
-
+	bool binary = false;
+	
 	if ((i = ArgPos((char *)"-size", argc, argv)) > 0)
 		word_dim = atoi(argv[i + 1]);
 	if ((i = ArgPos((char *)"-train", argc, argv)) > 0)
@@ -128,7 +129,7 @@ int main(int argc, char* argv[])
 		save_vocab_file = std::string(argv[i + 1]);
 	if ((i = ArgPos((char *)"-read-vocab", argc, argv)) > 0)
 		read_vocab_file = std::string(argv[i + 1]);
-	//if ((i = ArgPos((char *)"-binary", argc, argv)) > 0) binary = atoi(argv[i + 1]);
+	if ((i = ArgPos((char *)"-binary", argc, argv)) > 0) binary = static_cast<bool>(atoi(argv[i + 1]));
 	if ((i = ArgPos((char *)"-model", argc, argv)) > 0)
 		model = std::string(argv[i + 1]);
 	if ((i = ArgPos((char *)"-alpha", argc, argv)) > 0)
@@ -196,9 +197,9 @@ int main(int argc, char* argv[])
 	if(output_file != "")
 	{
 		if(train_method == "hs" && model == "cbow")
-			w2v.save_word2vec(output_file, w2v.C);	
+		  w2v.save_word2vec(output_file, w2v.C, binary);	
 		else
-			w2v.save_word2vec(output_file, w2v.W);
+		  w2v.save_word2vec(output_file, w2v.W, binary);
 	}
 
 	return 0;
