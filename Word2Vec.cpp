@@ -407,6 +407,9 @@ void Word2Vec::save_word2vec(string filename, const RMatrixXf& data, bool binary
 		int size = sizeof(char);
 		int r_size = data.cols() * sizeof(RMatrixXf::Scalar);
 
+		std::string head = std::string(std::to_string(vocab.size()) + " " + std::to_string(data.cols()) + "\n");
+		out.write(head.c_str(),head.length());
+		
 		RMatrixXf::Index r = data.rows();
 		RMatrixXf::Index c = data.cols();
 		out.write((char*) &r, sizeof(RMatrixXf::Index));
