@@ -1,6 +1,8 @@
 // require eigen, c++11, openmp(for multithread)
 // g++ main.cpp Word2Vec.cpp -oword2vec -I/usr/local/include/eigen/ -std=c++11 -Ofast -march=native -funroll-loops -fopenmp
 #include "Word2Vec.h"
+#include <algorithm>
+#include <string>
 
 void help()
 {
@@ -42,6 +44,8 @@ void help()
 	cout << "\t-read-vocab <file>" << endl;
 	cout << "\t\tThe vocabulary will be read from <file>, not constructed from the training data" << endl;
 	cout << "\t-model <string>" << endl;
+	cout << "\t-no-digits <int>" << endl;
+	cout << "\t-stopwords <int>" << endl;
 	cout << "\t\tThe model; default is continuous bag of words model(cbow) (use sg for skip-gram model)" << endl;
 	cout << "\nExamples:" << endl;
 	cout << "./word2vec -train data.txt -output vec.txt -size 200 -window 5 -subsample 1e-4 -negative 5 -model sg -train_method ns -binary 0 -iter 3" << endl;
@@ -60,33 +64,37 @@ int ArgPos(char *str, int argc, char **argv)
 		return -1;
 }
 
-vector<vector<string>> text8_corpus()
+vector<vector<string>> parse_corpus(std::string input_file)
 {
 	size_t count = 0;
 	const size_t max_sentence_len = 1000;
 	vector<vector<string>> sentences;
-	ifstream in("text8");
+	ifstream in(input_file);
 	vector<string> sentence;
+	std::cout << "pre-while\n";
 	while(true)
 	{
 		string s;
-
+		
 		in >> s;
 		if (s.empty()) break;
 
 		count++;
+		std::transform(s.begin(),s.end(),s.begin(),::tolower);
 		sentence.push_back(s);
 
 		if(count == max_sentence_len)
 		{
-			count = 0;
-			sentences.push_back(sentence);
-			sentence.clear();
+		  count = 0;
+		  sentences.push_back(sentence);
+		  sentence.clear();
 		}
 	}
 	in.close();
 	if(!sentence.empty())
-		sentences.push_back(sentence);
+	  {
+	    sentences.push_back(sentence);
+	  }
 
 	return std::move(sentences);
 }
@@ -119,7 +127,10 @@ int main(int argc, char* argv[])
 	int num_threads = 1;
 	int iter = 1;
 	int min_count = 5;
+	int min_word_size = 3;
 	bool binary = false;
+	bool digits = true;
+	bool stopwords = true;
 	
 	if ((i = ArgPos((char *)"-size", argc, argv)) > 0)
 		word_dim = atoi(argv[i + 1]);
@@ -130,6 +141,8 @@ int main(int argc, char* argv[])
 	if ((i = ArgPos((char *)"-read-vocab", argc, argv)) > 0)
 		read_vocab_file = std::string(argv[i + 1]);
 	if ((i = ArgPos((char *)"-binary", argc, argv)) > 0) binary = static_cast<bool>(atoi(argv[i + 1]));
+	if ((i = ArgPos((char *)"-no-digits", argc, argv)) > 0) digits = !static_cast<bool>(atoi(argv[i + 1]));
+	if ((i = ArgPos((char *)"-stopwords", argc, argv)) > 0) stopwords = static_cast<bool>(atoi(argv[i + 1]));
 	if ((i = ArgPos((char *)"-model", argc, argv)) > 0)
 		model = std::string(argv[i + 1]);
 	if ((i = ArgPos((char *)"-alpha", argc, argv)) > 0)
@@ -181,12 +194,18 @@ int main(int argc, char* argv[])
 	if(cbow_mean)
 		init_alpha = 0.05;
 
-	Word2Vec w2v(iter, window, min_count, table_size, word_dim, negative, subsample_threshold,
-		init_alpha, min_alpha, cbow_mean, num_threads, train_method, model);
+	Word2Vec w2v(iter, window, min_count, min_word_size, digits, stopwords,
+		     table_size, word_dim, negative, subsample_threshold,
+		     init_alpha, min_alpha, cbow_mean, num_threads, train_method, model);
 
 	omp_set_num_threads(num_threads);
 	//vector<vector<string>> sentences = w2v.line_docs("imdb_train.txt");
-	vector<vector<string>> sentences = text8_corpus();
+	vector<vector<string>> sentences = parse_corpus(input_file);
+	if (stopwords)
+	  {
+	    w2v.read_stopwords("stopwords.en");
+	    w2v.read_stopwords("stopwords.fr");
+	  }
 	w2v.build_vocab(sentences);
 	w2v.init_weights(w2v.vocab.size());
 	if(save_vocab_file != "")

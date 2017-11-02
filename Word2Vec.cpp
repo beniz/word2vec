@@ -5,13 +5,18 @@ inline bool comp(Word *w1, Word *w2)
 	return w1->count > w2->count;
 }
 
+bool is_digits(const std::string &str)
+{
+  return std::all_of(str.begin(), str.end(), ::isdigit);
+}
+
 Word2Vec::~Word2Vec(void)
 {
 }
 
-Word2Vec::Word2Vec(int iter, int window, int min_count, int table_size, int word_dim, int negative,
+Word2Vec::Word2Vec(int iter, int window, int min_count, int min_word_size, bool digits, bool stopwords, int table_size, int word_dim, int negative,
 	float subsample_threshold, float init_alpha, float min_alpha, bool cbow_mean, int num_threads, string train_method, string model):
-iter(iter),  window(window), min_count(min_count), table_size(table_size), word_dim(word_dim),
+  iter(iter),  window(window), min_count(min_count), min_word_size(min_word_size), digits(digits), table_size(table_size), word_dim(word_dim),
 	negative(negative), subsample_threshold(subsample_threshold), init_alpha(init_alpha),
 	min_alpha(min_alpha), num_threads(num_threads), train_method(train_method), model(model), generator(rd()), 
 	uni_dis(0.0, 1.0), distribution_window(0, window < 1 ? 0 : window - 1), distribution_table(0, table_size - 1){} 
@@ -142,8 +147,11 @@ void Word2Vec::build_vocab(vector<vector<string>> &sentences)
 
 	for(auto kv: word_cn)
 	{
-		if(kv.second < min_count)
-			continue;
+		if(kv.second < min_count
+		   || kv.first.size() <= min_word_size
+		   || (!digits && is_digits(kv.first))
+		   || is_stopword(kv.first))
+		  continue;
 
 		Word *w = new Word(0, kv.second,  kv.first);
 		vocab.push_back(w);
@@ -193,6 +201,29 @@ void Word2Vec::read_vocab(string vocab_filename)
 		vocab_hash[w->text] = WordP(w);
 	}
 	in.close();
+}
+
+void Word2Vec::read_stopwords(string sw_filename)
+{
+  ifstream in(sw_filename);
+  string s;
+
+  while (std::getline(in, s))
+    {
+      istringstream iss(s);
+      string word;
+      iss >> word;
+      sw_hash.insert(word);
+    }
+  in.close();
+}
+
+bool Word2Vec::is_stopword(string w)
+{
+  unordered_set<string>::const_iterator hit;
+  if ((hit=sw_hash.find(w))!=sw_hash.end())
+    return true;
+  return false;
 }
 
 void Word2Vec::init_weights(size_t vocab_size)
@@ -372,7 +403,7 @@ void Word2Vec::train(vector<vector<string>> &sentences)
 	{
 		std::shuffle(sample_idx.begin(), sample_idx.end(), generator);
 
-        #pragma omp parallel for
+#pragma omp parallel for
 		for(int i = 0; i < sample_idx.size(); ++i)
 		{
 			int s_id = sample_idx[i];

@@ -6,6 +6,7 @@
 #include <string>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <tuple>
 #include <algorithm>
 #include <numeric>
@@ -32,9 +33,12 @@ public:
 	int iter;
 	int window;
 	int min_count;
+	int min_word_size;
+	bool digits;
+	bool stopwords;
 	int table_size;
 	int word_dim;
-	int negative;                  //num of negetive samples
+	int negative;                  //num of negative samples
 	float subsample_threshold;
 	float init_alpha;
 	float min_alpha;
@@ -48,6 +52,7 @@ public:
 	vector<Word *> vocab;
 	vector<string> idx2word;
 	unordered_map<string, WordP> vocab_hash;
+	unordered_set<string> sw_hash;
 	vector<size_t> table;
 
 	RMatrixXf W, synapses1, C;
@@ -61,7 +66,7 @@ public:
 public:
 	~Word2Vec(void);
 
-	Word2Vec(int iter=1, int window=5, int min_count=5, int table_size=100000000, int word_dim=200, 
+	Word2Vec(int iter=1, int window=5, int min_count=5, int min_word_size=3, bool digits=true, bool stopwords=true, int table_size=100000000, int word_dim=200, 
 		int negative=0, float subsample_threshold=0.001, float init_alpha=0.025, float min_alpha=1e-6,
 		bool cbow_mean=false, int num_threads=1, string train_method="hs", string model="cbow");
 
@@ -73,7 +78,9 @@ public:
 	void build_vocab(vector<vector<string>> &sentences);
 	void save_vocab(string vocab_filename);
 	void read_vocab(string vocab_filename);
-
+	void read_stopwords(string sw_filename);
+	bool is_stopword(string w);
+	
 	void init_weights(size_t vocab_size);
 
 	vector<vector<Word *>> build_sample(vector<vector<string>> & data);
